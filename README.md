@@ -3,7 +3,7 @@ node-rdpjs
 
 Remote Desktop Protocol for Node.js
 
-node-rdpjs is a pure implementation of the Microsoft RDP (Remote Desktop Protocol) protocol (client and server side). node-rdpjs support only SSL security layer.
+node-rdpjs is a pure implementation of the Microsoft RDP (Remote Desktop Protocol) protocol (client and server side). node-rdpjs support SSL security layer and NLA (Network Level Authentication).
 
 ## Install
 
@@ -52,7 +52,7 @@ Client parameters :
 * password {string} password
 * enablePerf {boolean} Active some performance features (disable wallpaper)
 * autoLogin {boolean} start session if login informations are good
-* decompress {boolean} use RLE algorrithm for decompress bitmap
+* decompress {boolean} use RLE algorithm for decompress bitmap
 * screen {object} screen size
 	- width {integer} width of screen
 	- height {integer} height of screen
@@ -64,6 +64,8 @@ Client parameters :
 	- INFO
 	- WARN
 	- ERROR
+* alternateShell {string} executable to run instead of the shell
+* workingDir {string} working directory for the alternate shell
 
 Use of decompress parameter impact performance.
 
@@ -112,6 +114,16 @@ client.sendPointerEvent(x, y, button, isPressed);
 * button {integer} [ 1 (left) | 2 (right) | 3 (middle) ]
 * isPressed {boolean} true for a pressed button event
 
+```javascript
+client.sendWheelEvent(x, y, step, isNegative, isHorizontal);
+```
+
+* x {integer} mouse x position in pixel
+* y {integer} mouse y position in pixel
+* step {integer} wheel step
+* isNegative {boolean} true for a negative wheel event
+* isHorizontal {boolean} true for a horizontal wheel event
+
 #### Keyboard
 
 ```javascript
@@ -128,14 +140,34 @@ client.sendKeyEventUnicode(code, isPressed);
 * code {integer} unicode char of key
 * isPressed {boolean} true for a key pressed event
 
+## RDP Server
+
+To create a simple rdp server :
+
+```javascript
+var rdp = require('node-rdpjs');
+var fs = require('fs');
+
+var server = rdp.createServer({
+	key: fs.readFileSync('server.key'),
+	cert: fs.readFileSync('server.crt')
+}, function(client) {
+	client.on('connect', function() {
+		console.log('client connected');
+	}).on('close', function() {
+		console.log('client closed');
+	});
+}).listen(3389, function() {
+	console.log('server listening on port 3389');
+});
+```
+
 ## Project
 
 Please see [**mstsc.js**](https://github.com/citronneur/mstsc.js) project page to watch an example of node-rdpjs.
 
 ## Roadmap
 
-* Protocol server side
-* NLA Authentication security layer
 * RDP security layer for windows xp compatibility
 * Win32 orders
 * RemoteFX (H.264) codec
