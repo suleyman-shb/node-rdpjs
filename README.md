@@ -3,7 +3,7 @@ node-rdpjs
 
 Remote Desktop Protocol for Node.js
 
-node-rdpjs is a pure implementation of the Microsoft RDP (Remote Desktop Protocol) protocol (client and server side). node-rdpjs support SSL security layer and NLA (Network Level Authentication).
+node-rdpjs is a pure implementation of the Microsoft RDP (Remote Desktop Protocol) protocol (client and server side). node-rdpjs support Standard RDP security layer, SSL security layer and NLA (Network Level Authentication).
 
 ## Install
 
@@ -168,6 +168,5 @@ Please see [**mstsc.js**](https://github.com/citronneur/mstsc.js) project page t
 
 ## Roadmap
 
-* RDP security layer for windows xp compatibility
 * Win32 orders
 * RemoteFX (H.264) codec
