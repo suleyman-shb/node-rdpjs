@@ -233,12 +233,129 @@ function testPatBlt() {
     console.log('PatBlt test passed!');
 }
 
+function testDstBlt() {
+    console.log('Testing DstBlt parsing...');
+    var parser = new orders.OrderParser();
+
+    // DstBlt Primary Order
+    // Control byte: 0x01 (TS_STANDARD) | 0x08 (TS_TYPE_CHANGE) = 0x09
+    // Order Type: 0x00 (TS_NEG_DSTBLT_INDEX)
+    // Field Flags: 0x1F (all 5 fields present)
+    // Fields:
+    //   nLeftRect: 5
+    //   nTopRect: 5
+    //   nWidthRect: 50
+    //   nHeightRect: 50
+    //   bRop3: 0x00 (BLACKNESS)
+
+    var buffer = Buffer.from([
+        0x09, 0x00, 0x1F,
+        0x05, 0x00, 0x05, 0x00, 0x32, 0x00, 0x32, 0x00,
+        0x00
+    ]);
+
+    var s = new type.Stream(buffer);
+    var result = parser.parse(s, 1);
+
+    assert.strictEqual(result.length, 1);
+    var order = result[0];
+    assert.strictEqual(order.type, orders.OrderType.TS_NEG_DSTBLT_INDEX);
+    assert.strictEqual(order.fields.nLeftRect, 5);
+    assert.strictEqual(order.fields.bRop3, 0x00);
+
+    console.log('DstBlt test passed!');
+}
+
+function testLineTo() {
+    console.log('Testing LineTo parsing...');
+    var parser = new orders.OrderParser();
+
+    // LineTo Primary Order
+    // Control byte: 0x01 (TS_STANDARD) | 0x08 (TS_TYPE_CHANGE) = 0x09
+    // Order Type: 0x08 (TS_NEG_LINETO_INDEX)
+    // Field Flags: 0x03FF (all 10 fields present)
+    // Field Flags Bytes: 0xFF, 0x03
+    // Fields:
+    //   mixMode: 1
+    //   nXStart: 0
+    //   nYStart: 0
+    //   nXEnd: 100
+    //   nYEnd: 100
+    //   backColor: 0x000000
+    //   bRop2: 0x0D (R2_COPYPEN)
+    //   penStyle: 0
+    //   penWidth: 1
+    //   penColor: 0xFF0000 (Red)
+
+    var buffer = Buffer.from([
+        0x09, 0x08, 0xFF, 0x03,
+        0x01,
+        0x00, 0x00, 0x00, 0x00,
+        0x64, 0x00, 0x64, 0x00,
+        0x00, 0x00, 0x00,
+        0x0D,
+        0x00,
+        0x01,
+        0x00, 0x00, 0xFF
+    ]);
+
+    var s = new type.Stream(buffer);
+    var result = parser.parse(s, 1);
+
+    assert.strictEqual(result.length, 1);
+    var order = result[0];
+    assert.strictEqual(order.type, orders.OrderType.TS_NEG_LINETO_INDEX);
+    assert.strictEqual(order.fields.nXEnd, 100);
+    assert.strictEqual(order.fields.penColor, 0xFF0000);
+
+    console.log('LineTo test passed!');
+}
+
+function testSaveBitmap() {
+    console.log('Testing SaveBitmap parsing...');
+    var parser = new orders.OrderParser();
+
+    // SaveBitmap Primary Order
+    // Control byte: 0x01 (TS_STANDARD) | 0x08 (TS_TYPE_CHANGE) = 0x09
+    // Order Type: 0x0B (TS_NEG_SAVEBITMAP_INDEX)
+    // Field Flags: 0x3F (all 6 fields present)
+    // Fields:
+    //   savedBitmapPosition: 1024 (0x00000400)
+    //   nLeftRect: 0
+    //   nTopRect: 0
+    //   nRightRect: 100
+    //   nBottomRect: 100
+    //   operation: 0 (SV_SAVE)
+
+    var buffer = Buffer.from([
+        0x09, 0x0B, 0x3F,
+        0x00, 0x04, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        0x64, 0x00, 0x64, 0x00,
+        0x00
+    ]);
+
+    var s = new type.Stream(buffer);
+    var result = parser.parse(s, 1);
+
+    assert.strictEqual(result.length, 1);
+    var order = result[0];
+    assert.strictEqual(order.type, orders.OrderType.TS_NEG_SAVEBITMAP_INDEX);
+    assert.strictEqual(order.fields.savedBitmapPosition, 1024);
+    assert.strictEqual(order.fields.nRightRect, 100);
+
+    console.log('SaveBitmap test passed!');
+}
+
 try {
     testOpaqueRect();
     testDeltaCoords();
     testScrBlt();
     testMemBlt();
     testPatBlt();
+    testDstBlt();
+    testLineTo();
+    testSaveBitmap();
     testBounds();
     console.log('All tests passed!');
 } catch (e) {
