@@ -21,9 +21,9 @@ function testOpaqueRect() {
     //   colorIndex: 0x00FF0000 (Red) -> B:00, G:00, R:FF
 
     var buffer = Buffer.from([
-        0x09, 0x0A, 0x1F,
+        0x09, 0x0A, 0x7F,
         0x0A, 0x00, 0x14, 0x00, 0x64, 0x00, 0x32, 0x00,
-        0x00, 0x00, 0xFF
+        0xFF, 0x00, 0x00
     ]);
 
     var s = new type.Stream(buffer);
@@ -36,7 +36,9 @@ function testOpaqueRect() {
     assert.strictEqual(order.fields.nTopRect, 20);
     assert.strictEqual(order.fields.nWidthRect, 100);
     assert.strictEqual(order.fields.nHeightRect, 50);
-    assert.strictEqual(order.fields.colorIndex, 0xFF0000);
+    assert.strictEqual(order.fields.redOrPaletteIndex, 0xFF);
+    assert.strictEqual(order.fields.green, 0x00);
+    assert.strictEqual(order.fields.blue, 0x00);
 
     console.log('OpaqueRect test passed!');
 }
@@ -347,15 +349,124 @@ function testSaveBitmap() {
     console.log('SaveBitmap test passed!');
 }
 
+function testMem3Blt() {
+    console.log('Testing Mem3Blt parsing...');
+    var parser = new orders.OrderParser();
+
+    // Mem3Blt Primary Order
+    // Control byte: 0x01 (TS_STANDARD) | 0x08 (TS_TYPE_CHANGE) | 0x40 (TS_ZERO_FIELD_BYTE_BIT0) = 0x49
+    // Order Type: 0x04 (TS_NEG_MEM3BLT_INDEX)
+    // Field Flags: 0xFFFF (all 16 fields present, last byte omitted because it's 0x00)
+    // Fields:
+    //   cacheId: 1
+    //   nLeftRect: 10
+    //   nTopRect: 10
+    //   nWidthRect: 32
+    //   nHeightRect: 32
+    //   bRop3: 0xCC
+    //   nXSrc: 0
+    //   nYSrc: 0
+    //   backColor: 0x000000
+    //   foreColor: 0xFFFFFF
+    //   brushOrgX: 0
+    //   brushOrgY: 0
+    //   brushStyle: 0
+    //   brushHatch: 0
+    //   brushExtra: 7 bytes of 0
+    //   cacheIndex: 5
+
+    var buffer = Buffer.from([
+        0x49, 0x04, 0xFF, 0xFF,
+        0x01, 0x00,
+        0x0A, 0x00, 0x0A, 0x00, 0x20, 0x00, 0x20, 0x00,
+        0xCC,
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00,
+        0xFF, 0xFF, 0xFF,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x05, 0x00
+    ]);
+
+    var s = new type.Stream(buffer);
+    var result = parser.parse(s, 1);
+
+    assert.strictEqual(result.length, 1);
+    var order = result[0];
+    assert.strictEqual(order.type, orders.OrderType.TS_NEG_MEM3BLT_INDEX);
+    assert.strictEqual(order.fields.cacheId, 1);
+    assert.strictEqual(order.fields.nWidth, 32);
+    assert.strictEqual(order.fields.cacheIndex, 5);
+    assert.strictEqual(order.fields.foreColor, 0xFFFFFF);
+
+    console.log('Mem3Blt test passed!');
+}
+
+function testMultiOpaqueRect() {
+    console.log('Testing MultiOpaqueRect parsing...');
+    var parser = new orders.OrderParser();
+
+    // MultiOpaqueRect Primary Order
+    // Control byte: 0x01 (TS_STANDARD) | 0x08 (TS_TYPE_CHANGE) = 0x09
+    // Order Type: 0x12 (TS_NEG_MULTIOPAQUERECT_INDEX)
+    // Field Flags: 0x01FF (all 9 fields present)
+    //   - max field flags bytes for 9 fields is 2. (9+1)/8 = 1.25 -> 2.
+    //   - no zero flags in control byte, so read 2 bytes.
+    // Fields:
+    //   nLeftRect: 10
+    //   nTopRect: 10
+    //   nWidthRect: 100
+    //   nHeightRect: 100
+    //   redOrPaletteIndex: 0xFF
+    //   green: 0x00
+    //   blue: 0x00
+    //   nDeltaEntries: 1
+    //   rects: Two-Byte Header Variable Field containing Delta-Encoded Rectangles
+    //     cbData: 2 bytes
+    //     rgbData:
+    //       zeroBits: ceil(1/2) = 1 byte. 0x00 (no fields are zero)
+    //       deltaEncodedRectangles:
+    //         leftDelta: 5 (0x05)
+    //         topDelta: 5 (0x05)
+    //         widthDelta: 20 (0x14)
+    //         heightDelta: 20 (0x14)
+
+    var buffer = Buffer.from([
+        0x09, 0x12, 0xFF, 0x01,
+        0x0A, 0x00, 0x0A, 0x00, 0x64, 0x00, 0x64, 0x00,
+        0xFF, 0x00, 0x00,
+        0x01,
+        0x05, 0x00, // cbData: 5 bytes (1 zeroBits + 4 deltaEncodedRectangles)
+        0x00, // zeroBits
+        0x05, 0x05, 0x14, 0x14 // deltas
+    ]);
+
+    var s = new type.Stream(buffer);
+    var result = parser.parse(s, 1);
+
+    assert.strictEqual(result.length, 1);
+    var order = result[0];
+    assert.strictEqual(order.type, orders.OrderType.TS_NEG_MULTIOPAQUERECT_INDEX);
+    assert.strictEqual(order.fields.nLeftRect, 10);
+    assert.strictEqual(order.fields.nWidth, 100);
+    assert.strictEqual(order.fields.nDeltaEntries, 1);
+    assert.strictEqual(order.fields.rects.length, 1);
+    assert.strictEqual(order.fields.rects[0].left, 5);
+    assert.strictEqual(order.fields.rects[0].width, 20);
+
+    console.log('MultiOpaqueRect test passed!');
+}
+
 try {
     testOpaqueRect();
     testDeltaCoords();
     testScrBlt();
     testMemBlt();
+    testMem3Blt();
     testPatBlt();
     testDstBlt();
     testLineTo();
     testSaveBitmap();
+    testMultiOpaqueRect();
     testBounds();
     console.log('All tests passed!');
 } catch (e) {
