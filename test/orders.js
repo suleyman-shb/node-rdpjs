@@ -122,7 +122,7 @@ function testMemBlt() {
     // Control byte: 0x01 (TS_STANDARD) | 0x08 (TS_TYPE_CHANGE) = 0x09
     // Order Type: 0x03 (TS_NEG_MEMBLT_INDEX)
     // Field Flags: 0x01FF (all 9 fields present, requires 2 bytes field flags)
-    // Field Flags Bytes: 0xFF, 0x01 (8th bit of 0xFF is set, so next byte is read)
+    // Field Flags Bytes: 0xFF, 0x03 (7-bit chunks + extension bit)
     // Fields:
     //   cacheId: 1 (0x0001)
     //   nLeftRect: 10 (0x000A)
@@ -135,7 +135,7 @@ function testMemBlt() {
     //   cacheIndex: 5 (0x0005)
 
     var buffer = Buffer.from([
-        0x09, 0x03, 0xFF, 0x01,
+        0x09, 0x03, 0xFF, 0x03,
         0x01, 0x00,
         0x0A, 0x00, 0x0A, 0x00, 0x20, 0x00, 0x20, 0x00,
         0xCC,
@@ -194,7 +194,7 @@ function testPatBlt() {
     // Control byte: 0x01 (TS_STANDARD) | 0x08 (TS_TYPE_CHANGE) = 0x09
     // Order Type: 0x01 (TS_NEG_PATBLT_INDEX)
     // Field Flags: 0x0FFF (all 12 fields present)
-    // Field Flags Bytes: 0xFF, 0x0F
+    // Field Flags Bytes: 0xFF, 0x1F (7-bit chunks + extension bit)
     // Fields:
     //   nLeftRect: 10
     //   nTopRect: 10
@@ -210,7 +210,7 @@ function testPatBlt() {
     //   brushExtra: 7 bytes of 0
 
     var buffer = Buffer.from([
-        0x09, 0x01, 0xFF, 0x0F,
+        0x09, 0x01, 0xFF, 0x1F,
         0x0A, 0x00, 0x0A, 0x00, 0x64, 0x00, 0x64, 0x00,
         0xCC,
         0x00, 0x00, 0x00,
@@ -274,7 +274,7 @@ function testLineTo() {
     // Control byte: 0x01 (TS_STANDARD) | 0x08 (TS_TYPE_CHANGE) = 0x09
     // Order Type: 0x08 (TS_NEG_LINETO_INDEX)
     // Field Flags: 0x03FF (all 10 fields present)
-    // Field Flags Bytes: 0xFF, 0x03
+    // Field Flags Bytes: 0xFF, 0x07 (7-bit chunks + extension bit)
     // Fields:
     //   mixMode: 1
     //   nXStart: 0
@@ -288,7 +288,7 @@ function testLineTo() {
     //   penColor: 0xFF0000 (Red)
 
     var buffer = Buffer.from([
-        0x09, 0x08, 0xFF, 0x03,
+        0x09, 0x08, 0xFF, 0x07,
         0x01,
         0x00, 0x00, 0x00, 0x00,
         0x64, 0x00, 0x64, 0x00,
