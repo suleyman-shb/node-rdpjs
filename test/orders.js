@@ -122,7 +122,7 @@ function testMemBlt() {
     // Control byte: 0x01 (TS_STANDARD) | 0x08 (TS_TYPE_CHANGE) = 0x09
     // Order Type: 0x03 (TS_NEG_MEMBLT_INDEX)
     // Field Flags: 0x01FF (all 9 fields present, requires 2 bytes field flags)
-    // Field Flags Bytes: 0xFF, 0x01 (8th bit of 0xFF is set, so next byte is read)
+    // Field Flags Bytes (7-bit encoded): 0xFF, 0x03 (0xFF & 0x7F | (0x03 & 0x7F) << 7 = 0x7F | 0x0180 = 0x01FF)
     // Fields:
     //   cacheId: 1 (0x0001)
     //   nLeftRect: 10 (0x000A)
@@ -135,7 +135,7 @@ function testMemBlt() {
     //   cacheIndex: 5 (0x0005)
 
     var buffer = Buffer.from([
-        0x09, 0x03, 0xFF, 0x01,
+        0x09, 0x03, 0xFF, 0x03,
         0x01, 0x00,
         0x0A, 0x00, 0x0A, 0x00, 0x20, 0x00, 0x20, 0x00,
         0xCC,
@@ -194,7 +194,7 @@ function testPatBlt() {
     // Control byte: 0x01 (TS_STANDARD) | 0x08 (TS_TYPE_CHANGE) = 0x09
     // Order Type: 0x01 (TS_NEG_PATBLT_INDEX)
     // Field Flags: 0x0FFF (all 12 fields present)
-    // Field Flags Bytes: 0xFF, 0x0F
+    // Field Flags Bytes (7-bit encoded): 0xFF, 0x1F (0x7F | (0x1F << 7) = 0x7F | 0xF80 = 0xFFF)
     // Fields:
     //   nLeftRect: 10
     //   nTopRect: 10
@@ -210,7 +210,7 @@ function testPatBlt() {
     //   brushExtra: 7 bytes of 0
 
     var buffer = Buffer.from([
-        0x09, 0x01, 0xFF, 0x0F,
+        0x09, 0x01, 0xFF, 0x1F,
         0x0A, 0x00, 0x0A, 0x00, 0x64, 0x00, 0x64, 0x00,
         0xCC,
         0x00, 0x00, 0x00,
@@ -274,7 +274,7 @@ function testLineTo() {
     // Control byte: 0x01 (TS_STANDARD) | 0x08 (TS_TYPE_CHANGE) = 0x09
     // Order Type: 0x08 (TS_NEG_LINETO_INDEX)
     // Field Flags: 0x03FF (all 10 fields present)
-    // Field Flags Bytes: 0xFF, 0x03
+    // Field Flags Bytes (7-bit encoded): 0xFF, 0x07 (0x7F | (0x07 << 7) = 0x7F | 0x380 = 0x3FF)
     // Fields:
     //   mixMode: 1
     //   nXStart: 0
@@ -288,7 +288,7 @@ function testLineTo() {
     //   penColor: 0xFF0000 (Red)
 
     var buffer = Buffer.from([
-        0x09, 0x08, 0xFF, 0x03,
+        0x09, 0x08, 0xFF, 0x07,
         0x01,
         0x00, 0x00, 0x00, 0x00,
         0x64, 0x00, 0x64, 0x00,
@@ -309,6 +309,107 @@ function testLineTo() {
     assert.strictEqual(order.fields.penColor, 0xFF0000);
 
     console.log('LineTo test passed!');
+}
+
+function testMem3Blt() {
+    console.log('Testing Mem3Blt parsing...');
+    var parser = new orders.OrderParser();
+
+    // Mem3Blt Primary Order
+    // Control byte: 0x01 (TS_STANDARD) | 0x08 (TS_TYPE_CHANGE) = 0x09
+    // Order Type: 0x04 (TS_NEG_MEM3BLT_INDEX)
+    // Field Flags: 0xFFFF (all 16 fields present)
+    // Field Flags Bytes: 0xFF, 0xFF, 0x03 (0x7F | (0x7F << 7) | (0x03 << 14) = 0x7F | 0x3F80 | 0xC000 = 0xFFFF)
+    // Fields:
+    //   cacheId: 1
+    //   nLeftRect: 10
+    //   nTopRect: 10
+    //   nWidthRect: 32
+    //   nHeightRect: 32
+    //   bRop3: 0xCC
+    //   nXSrc: 0
+    //   nYSrc: 0
+    //   backColor: 0x000000
+    //   foreColor: 0xFFFFFF
+    //   brushX: 0
+    //   brushY: 0
+    //   brushStyle: 0
+    //   brushHatch: 0
+    //   brushExtra: 7 bytes of 0
+    //   cacheIndex: 5
+
+    var buffer = Buffer.from([
+        0x09, 0x04, 0xFF, 0xFF, 0x03,
+        0x01, 0x00,
+        0x0A, 0x00, 0x0A, 0x00, 0x20, 0x00, 0x20, 0x00,
+        0xCC,
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00,
+        0xFF, 0xFF, 0xFF,
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x05, 0x00
+    ]);
+
+    var s = new type.Stream(buffer);
+    var result = parser.parse(s, 1);
+
+    assert.strictEqual(result.length, 1);
+    var order = result[0];
+    assert.strictEqual(order.type, orders.OrderType.TS_NEG_MEM3BLT_INDEX);
+    assert.strictEqual(order.fields.cacheId, 1);
+    assert.strictEqual(order.fields.nLeftRect, 10);
+    assert.strictEqual(order.fields.cacheIndex, 5);
+    assert.strictEqual(order.fields.foreColor, 0xFFFFFF);
+
+    console.log('Mem3Blt test passed!');
+}
+
+function testMultiOpaqueRect() {
+    console.log('Testing MultiOpaqueRect parsing...');
+    var parser = new orders.OrderParser();
+
+    // MultiOpaqueRect Primary Order
+    // Control byte: 0x01 (TS_STANDARD) | 0x08 (TS_TYPE_CHANGE) = 0x09
+    // Order Type: 0x12 (TS_NEG_MULTIOPAQUERECT_INDEX)
+    // Field Flags: 0xFF (all 8 fields present)
+    // Field Flags Bytes: 0xFF, 0x01 (0x7F | (0x01 << 7) = 0xFF)
+    // Fields:
+    //   nLeftRect: 10
+    //   nTopRect: 10
+    //   nWidthRect: 50
+    //   nHeightRect: 50
+    //   colorIndex: 0xFF0000
+    //   numRectangles: 1 (one additional rectangle)
+    //   cbData: 4 (4 bytes of delta data)
+    //   rectangles: 1 delta rect (left: +5, top: +5, width: +0, height: +0)
+    //     Delta rect encoding (packed values):
+    //     left delta 5: 0x05
+    //     top delta 5: 0x05
+    //     width delta 0: 0x00
+    //     height delta 0: 0x00
+
+    var buffer = Buffer.from([
+        0x09, 0x12, 0xFF, 0x01,
+        0x0A, 0x00, 0x0A, 0x00, 0x32, 0x00, 0x32, 0x00,
+        0x00, 0x00, 0xFF,
+        0x01,
+        0x04,
+        0x05, 0x05, 0x00, 0x00
+    ]);
+
+    var s = new type.Stream(buffer);
+    var result = parser.parse(s, 1);
+
+    assert.strictEqual(result.length, 1);
+    var order = result[0];
+    assert.strictEqual(order.type, orders.OrderType.TS_NEG_MULTIOPAQUERECT_INDEX);
+    assert.strictEqual(order.fields.numRectangles, 1);
+    assert.strictEqual(order.fields.rectangles.length, 1);
+    assert.strictEqual(order.fields.rectangles[0].left, 15);
+    assert.strictEqual(order.fields.rectangles[0].top, 15);
+
+    console.log('MultiOpaqueRect test passed!');
 }
 
 function testSaveBitmap() {
@@ -352,9 +453,11 @@ try {
     testDeltaCoords();
     testScrBlt();
     testMemBlt();
+    testMem3Blt();
     testPatBlt();
     testDstBlt();
     testLineTo();
+    testMultiOpaqueRect();
     testSaveBitmap();
     testBounds();
     console.log('All tests passed!');
