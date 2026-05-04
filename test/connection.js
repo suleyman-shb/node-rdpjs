@@ -1,4 +1,4 @@
-const rdp = require('./lib/index.js');
+const rdp = require('../lib/index.js');
 
 const options = {
   domain: process.env.RDP_DOMAIN,
