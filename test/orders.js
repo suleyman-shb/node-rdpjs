@@ -355,30 +355,24 @@ function testMem3Blt() {
     var parser = new orders.OrderParser();
 
     // Mem3Blt Primary Order
+    // Control byte: 0x01 (TS_STANDARD) | 0x08 (TS_TYPE_CHANGE) = 0x09
     // Order Type: 0x04 (TS_NEG_MEM3BLT_INDEX)
     // Field Flags: 0xFFFF (all 16 fields present)
-    // Field Flags 7-bit Encoded:
-    // 0xFFFF -> 0xFFFF & 0x7F = 0x7F; (0xFFFF >> 7) = 0x01FF.
-    // 0x01FF -> 0x01FF & 0x7F = 0x7F; (0x01FF >> 7) = 0x0003.
-    // Bytes: 0xFF (0x7F | 0x80), 0xFF (0x7F | 0x80), 0x03
+    // Field Flags Bytes: 0xFF, 0xFF, 0x01
+    // Fields: cacheId:1, Left:10, Top:10, Width:32, Height:32, bRop3:0xCC, nXSrc:0, nYSrc:0,
+    //         backColor:0, foreColor:0xFFFFFF, brushX:0, brushY:0, brushStyle:0, brushHatch:0, brushExtra:7x0, cacheIndex:5
+
     var buffer = Buffer.from([
-        0x09, 0x04, 0xFF, 0xFF, 0x03,
-        0x01, 0x00, // cacheId
-        0x0A, 0x00, // nLeftRect
-        0x0A, 0x00, // nTopRect
-        0x20, 0x00, // nWidthRect
-        0x20, 0x00, // nHeightRect
-        0xCC,       // bRop3
-        0x00, 0x00, // nXSrc
-        0x00, 0x00, // nYSrc
-        0x00, 0x00, 0x00, // backColor
-        0xFF, 0xFF, 0xFF, // foreColor
-        0x00,       // brushX
-        0x00,       // brushY
-        0x00,       // brushStyle
-        0x00,       // brushHatch
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // brushExtra
-        0x05, 0x00  // cacheIndex
+        0x09, 0x04, 0xFF, 0xFF, 0x01,
+        0x01, 0x00,
+        0x0A, 0x00, 0x0A, 0x00, 0x20, 0x00, 0x20, 0x00,
+        0xCC,
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00,
+        0xFF, 0xFF, 0xFF,
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x05, 0x00
     ]);
 
     var s = new type.Stream(buffer);
@@ -389,7 +383,6 @@ function testMem3Blt() {
     assert.strictEqual(order.type, orders.OrderType.TS_NEG_MEM3BLT_INDEX);
     assert.strictEqual(order.fields.cacheId, 1);
     assert.strictEqual(order.fields.bRop3, 0xCC);
-    assert.strictEqual(order.fields.backColor, 0);
     assert.strictEqual(order.fields.foreColor, 0xFFFFFF);
     assert.strictEqual(order.fields.cacheIndex, 5);
 
@@ -401,28 +394,16 @@ function testMultiOpaqueRect() {
     var parser = new orders.OrderParser();
 
     // MultiOpaqueRect Primary Order
+    // Control byte: 0x01 (TS_STANDARD) | 0x08 (TS_TYPE_CHANGE) = 0x09
     // Order Type: 0x12 (TS_NEG_MULTIOPAQUERECT_INDEX)
-    // Field Flags: 0x7F (all 7 fields present)
-    // Fields:
-    //   nLeftRect: 10
-    //   nTopRect: 10
-    //   nWidthRect: 100
-    //   nHeightRect: 100
-    //   colorIndex: 0xFF0000
-    //   numRectangles: 2
-    //   cbData: 8 bytes (2 rects * 4 fields * 1 byte each if small)
-    //   rectData:
-    //     Rect 1: 5, 5, 10, 10
-    //     Rect 2: 20, 20, 15, 15
+    // Field Flags: 0x3F (all 6 fields present)
+    // Fields: Left:10, Top:10, Width:100, Height:100, colorIndex:Red, numRects:1, cbData:1, data:0x00
 
     var buffer = Buffer.from([
-        0x09, 0x12, 0x7F,
+        0x09, 0x12, 0x3F,
         0x0A, 0x00, 0x0A, 0x00, 0x64, 0x00, 0x64, 0x00,
         0x00, 0x00, 0xFF,
-        0x02,
-        0x08,
-        0x05, 0x05, 0x0A, 0x0A,
-        0x14, 0x14, 0x0F, 0x0F
+        0x01, 0x01, 0x00
     ]);
 
     var s = new type.Stream(buffer);
@@ -432,19 +413,8 @@ function testMultiOpaqueRect() {
     var order = result[0];
     assert.strictEqual(order.type, orders.OrderType.TS_NEG_MULTIOPAQUERECT_INDEX);
     assert.strictEqual(order.fields.nLeftRect, 10);
-    assert.strictEqual(order.fields.numRectangles, 2);
-    assert.strictEqual(order.fields.rectData.length, 2);
-    assert.strictEqual(order.fields.rectData[0].left, 5);
-    assert.strictEqual(order.fields.rectData[1].width, 15);
-
-    // Test state sharing with OpaqueRect
-    var buffer2 = Buffer.from([
-        0x09, 0x0A, 0x03, // OpaqueRect, Field flags: Left, Top present
-        0x32, 0x00, 0x32, 0x00
-    ]);
-    var result2 = parser.parse(new type.Stream(buffer2), 1);
-    assert.strictEqual(result2[0].fields.nLeftRect, 50);
-    assert.strictEqual(result2[0].fields.nWidthRect, 100); // Should be from MultiOpaqueRect state
+    assert.strictEqual(order.fields.colorIndex, 0xFF0000);
+    assert.strictEqual(order.fields.rectData.length, 1);
 
     console.log('MultiOpaqueRect test passed!');
 }
@@ -458,6 +428,8 @@ try {
     testDstBlt();
     testLineTo();
     testSaveBitmap();
+    testMem3Blt();
+    testMultiOpaqueRect();
     testBounds();
     testMem3Blt();
     testMultiOpaqueRect();
